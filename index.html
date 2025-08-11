@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>节点统一命名工具</title>
+<style>
+    body { font-family: Arial; padding: 20px; background: #f4f4f4; }
+    textarea { width: 100%; height: 80px; margin-bottom: 10px; padding: 8px; }
+    button { padding: 10px 20px; font-size: 16px; cursor: pointer; }
+    select, input { padding: 5px; margin-bottom: 10px; width: 100%; }
+    .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+</style>
+</head>
+<body>
+<div class="card">
+<h2>节点统一命名工具</h2>
+<p>粘贴你的订阅链接，选择命名模式，点击生成即可。</p>
+
+<label>订阅链接：</label>
+<textarea id="sub_url" placeholder="输入你的订阅链接"></textarea>
+
+<label>命名模式：</label>
+<select id="mode">
+    <option value="1">国家+编号</option>
+    <option value="2">自定义名称+编号</option>
+</select>
+
+<label>自定义名称（仅模式2生效）：</label>
+<input type="text" id="custom_name" value="白嫖节点">
+
+<button onclick="renameNodes()">生成统一命名订阅</button>
+
+<h3>输出结果（Base64 编码订阅）：</h3>
+<textarea id="output" readonly></textarea>
+</div>
+
+<script>
+async function renameNodes() {
+    let sub_url = document.getElementById('sub_url').value.trim();
+    let mode = document.getElementById('mode').value;
+    let custom_name = document.getElementById('custom_name').value.trim();
+
+    if (!sub_url) { alert("请输入订阅链接"); return; }
+
+    try {
+        let resp = await fetch(sub_url);
+        let content = await resp.text();
+
+        let decoded;
+        try {
+            decoded = atob(content.trim());
+        } catch (e) {
+            decoded = content; // YAML 格式
+        }
+
+        let lines = decoded.split("\n");
+        let country_map = {
+            "HK": "香港", "JP": "日本", "US": "美国",
+            "SG": "新加坡", "TW": "台湾", "KR": "韩国"
+        };
+
+        let new_lines = [];
+        let count = 1;
+
+        for (let line of lines) {
+            if (!line.trim()) continue;
+            let new_name = "";
+
+            if (mode == "1") {
+                let found = false;
+                for (let code in country_map) {
+                    if (line.toLowerCase().includes(code.toLowerCase()) || line.includes(country_map[code])) {
+                        new_name = `${country_map[code]}-${String(count).padStart(2, '0')}`;
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) new_name = `未知-${String(count).padStart(2, '0')}`;
+            } else {
+                new_name = `${custom_name}-${String(count).padStart(2, '0')}`;
+            }
+
+            new_lines.push(line.replace(/#.*$/, `#${new_name}`));
+            count++;
+        }
+
+        let new_sub = btoa(new_lines.join("\n"));
+        document.getElementById('output').value = new_sub;
+    } catch (err) {
+        alert("订阅获取失败，请检查链接");
+    }
+}
+</script>
+</body>
+</html>
